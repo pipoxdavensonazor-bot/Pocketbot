@@ -317,7 +317,8 @@ function poConnect(){
 let raw=($("ssidInput").value||"").trim();
 if(!raw){poLog("Colle ton SSID d'abord.");return;}
 let sess=raw,uid=0,demo=$("demoInput").value==="1";
-try{if(raw.startsWith('42[')){let j=raw.slice(2);let arr=JSON.parse(j);let d=arr[1]||{};sess=d.session||d.sessionToken||sess;uid=d.uid||0;}}catch(e){}
+try{if(raw.startsWith('42[')){let j=raw.slice(2);let arr=JSON.parse(j);let ev0=arr[0],d=arr[1]||{};if(ev0==="user_init"){sess=d.secret||sess;uid=d.id||0;}else{sess=d.session||d.sessionToken||d.secret||sess;uid=d.uid||d.id||0;}}}catch(e){}
+if(/^\d+:[a-f0-9]{16,}$/i.test(raw)){let p=raw.split(":");uid=p[0];sess=p[1];}
 if(/^[a-f0-9]{16,}$/i.test(raw)){sess=raw;}
 PO.ssid=sess;PO.demo=demo;
 if(PO.ws){try{PO.ws.close();}catch(e){}}
@@ -336,13 +337,15 @@ if(m==="2"){ws.send("3");return;}
 if(m.startsWith("0")){ws.send("40");return;}
 if(m==="40"||m.startsWith("40{")){
 let auth={session:sess,sessionToken:sess,isDemo:demo?1:0,uid:uid,platform:1,isFastHistory:true};
-ws.send('42["auth",'+JSON.stringify(auth)+']');return;
+ws.send('42["auth",'+JSON.stringify(auth)+']');
+try{ws.send('42'+JSON.stringify(["user_init",{id:String(uid),secret:sess}]));}catch(e){}
+return;
 }
 if(m.startsWith("42")){
 try{
 let arr=JSON.parse(m.slice(2));
 let ev2=arr[0],dt=arr[1];
-if(ev2==="authenticated"||ev2==="auth/success"||ev2==="auth(success)"){settled=true;poSet(true,"connecté");poLog("Connecté. Chargement bougies "+assetInput.value+"...");poCandles();}
+if(ev2==="authenticated"||ev2==="auth/success"||ev2==="auth(success)"||ev2==="user_ready"||ev2==="user_init"){settled=true;poSet(true,"connecté");poLog("Connecté. Chargement bougies "+assetInput.value+"...");poCandles();}
 else if(ev2==="auth_error"||ev2==="auth/error"||(typeof dt==="object"&&dt&&dt.error)){settled=true;poSet(false,"auth refusée");poLog("Auth refusée — token expiré. Reprends le dernier message auth frais et reconnecte.");}
 else if(ev2==="changeSymbol"||dt&&dt.candles){poUseCandles(dt);}
 else if(ev2==="candles"){poUseCandles(dt);}
